@@ -78,14 +78,11 @@ var (
 	})
 )
 
-func init() {
-	prometheus.MustRegister(Pomvoltage)
-	prometheus.MustRegister(Pomcurrent)
-	prometheus.MustRegister(Pompower)
-
-}
-
 func main() {
+	pReg := prometheus.NewRegistry()
+	pReg.MustRegister(Pomvoltage)
+	pReg.MustRegister(Pomcurrent)
+	pReg.MustRegister(Pompower)
 	go func() {
 		for {
 			process()
@@ -93,7 +90,8 @@ func main() {
 			time.Sleep(10 * time.Second)
 		}
 	}()
-	http.Handle("/metrics", promhttp.Handler())
+	handler := promhttp.HandlerFor(pReg, promhttp.HandlerOpts{})
+	http.Handle("/metrics", handler)
 	http.ListenAndServe(":8089", nil)
 }
 
