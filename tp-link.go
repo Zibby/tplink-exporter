@@ -121,7 +121,7 @@ func pomStats() {
 		"Current": current,
 		"Voltage": voltage,
 		"Total":   total})
-	log.Into("Publishing Stats")
+	log.Info("Publishing Stats")
 }
 
 func process() {
