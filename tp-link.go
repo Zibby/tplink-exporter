@@ -116,6 +116,7 @@ func pomStats() {
 	Pomvoltage.Set(voltage)
 	Pomcurrent.Set(current)
 	Pompower.Set(power)
+	Pomtotal.Set(total)
 	log.WithFields(log.Fields{
 		"Power":   power,
 		"Current": current,
