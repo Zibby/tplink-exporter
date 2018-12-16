@@ -120,8 +120,8 @@ func pomStats() {
 		"Power":   power,
 		"Current": current,
 		"Voltage": voltage,
-		"Total":   total})
-	log.Info("Publishing Stats")
+		"Total":   total,
+	}).Info("Publishing Stats")
 }
 
 func process() {
