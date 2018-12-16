@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sausheong/hs1xxplug"
+	log "github.com/sirupsen/logrus"
 )
 
 type kasa struct {
@@ -78,11 +78,23 @@ var (
 	})
 )
 
+var (
+	Pomtotal = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "kasa_total",
+		Help: "Total recorded by TPlink HS110",
+	})
+)
+
 func main() {
+	log.SetOutput(os.Stdout)
+	log.Info("starting")
+	log.SetFormatter(&log.JSONFormatter{})
+
 	pReg := prometheus.NewRegistry()
 	pReg.MustRegister(Pomvoltage)
 	pReg.MustRegister(Pomcurrent)
 	pReg.MustRegister(Pompower)
+	pReg.MustRegister(Pomtotal)
 	go func() {
 		for {
 			process()
@@ -93,22 +105,32 @@ func main() {
 	handler := promhttp.HandlerFor(pReg, promhttp.HandlerOpts{})
 	http.Handle("/metrics", handler)
 	http.ListenAndServe(":8089", nil)
+	log.Info("Serving on port 8089")
 }
 
 func pomStats() {
-	Pomvoltage.Set(tplink.Emeter.GetRealtime.Voltage)
-	Pomcurrent.Set(tplink.Emeter.GetRealtime.Current)
-	Pompower.Set(tplink.Emeter.GetRealtime.Power)
+	voltage := tplink.Emeter.GetRealtime.Voltage
+	current := tplink.Emeter.GetRealtime.Current
+	power := tplink.Emeter.GetRealtime.Power
+	total := tplink.Emeter.GetRealtime.Total
+	Pomvoltage.Set(voltage)
+	Pomcurrent.Set(current)
+	Pompower.Set(power)
+	log.WithFields(log.Fields{
+		"Power":   power,
+		"Current": current,
+		"Voltage": voltage,
+		"Total":   total})
 }
 
 func process() {
 	plug := hs1xxplug.Hs1xxPlug{IPAddress: os.Getenv("TPLINK_ADDR")}
 	results, err := plug.MeterInfo()
 	if err != nil {
-		fmt.Println("err:", err)
+		log.Error("err:", err)
 	}
 	error := json.Unmarshal([]byte(results), &tplink)
 	if error != nil {
-		fmt.Println(err)
+		log.Error(err)
 	}
 }
