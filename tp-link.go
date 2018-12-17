@@ -126,6 +126,8 @@ func main() {
 	go func() {
 		cancel := make(chan struct{}, 1)
 		timer := time.AfterFunc(2*time.Second, func() {
+			log.Error("Timed out")
+			time.Sleep(15 * time.Second)
 			close(cancel)
 		})
 		defer timer.Stop()
@@ -137,8 +139,6 @@ func main() {
 					pomStats()
 				}
 			}
-			log.Error("Timed out")
-			time.Sleep(15 * time.Second)
 		}
 	}()
 	serve()
