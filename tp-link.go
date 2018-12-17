@@ -98,6 +98,7 @@ func register() {
 	pReg.MustRegister(Pomcurrent)
 	pReg.MustRegister(Pompower)
 	pReg.MustRegister(Pomtotal)
+	log.Info("Stats Registered")
 }
 
 func initLog() {
@@ -109,10 +110,10 @@ func initLog() {
 func init() {
 	initLog()
 	register()
-	log.Info("starting http hander")
 }
 
 func serve() {
+	log.Info("starting http hander")
 	handler := promhttp.HandlerFor(pReg, promhttp.HandlerOpts{})
 	http.Handle("/metrics", handler)
 	http.ListenAndServe(":8089", nil)
@@ -134,10 +135,13 @@ func main() {
 		for {
 			select {
 			case <-cancel:
-				err := connectToPlug()
-				if err == nil {
+				connectedToPlug := connectToPlug()
+				if connectedToPlug == true {
 					pomStats()
+				} else {
+					time.Sleep(10 * time.Second)
 				}
+
 			}
 		}
 	}()
@@ -161,20 +165,20 @@ func pomStats() {
 	}).Info("Publishing Stats")
 }
 
-func connectToPlug() error {
+func connectToPlug() bool {
 	log.WithFields(log.Fields{
 		"Plug_IP": plugIP,
 	}).Info("connecting to plug")
 	results, err := plug.MeterInfo()
 	if err != nil {
-		log.Error("err:", err)
-		return err
+		log.Error(err)
+		return false
 	}
 	log.Info("Unmarshaling meter reading")
 	err = json.Unmarshal([]byte(results), &tplink)
 	if err != nil {
 		log.Info(err)
-		return err
+		return false
 	}
-	return nil
+	return true
 }
