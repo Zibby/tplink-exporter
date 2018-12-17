@@ -58,6 +58,7 @@ type kasa struct {
 var tplink kasa
 
 var (
+	// Pomvoltage is the current voltage will see
 	Pomvoltage = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "kasa_voltage",
 		Help: "Voltage recorded by TPlink HS110",
@@ -65,6 +66,7 @@ var (
 )
 
 var (
+	// Pomcurrent is the current prometheus will see
 	Pomcurrent = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "kasa_current",
 		Help: "Current recorded by TPlink HS110",
@@ -72,6 +74,7 @@ var (
 )
 
 var (
+	// Pompower is the power prometheus will see
 	Pompower = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "kasa_power",
 		Help: "Power recorded by TPlink HS110",
@@ -79,33 +82,66 @@ var (
 )
 
 var (
+	// Pomtotal is the total prometheus will see
 	Pomtotal = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "kasa_total",
 		Help: "Total recorded by TPlink HS110",
 	})
 )
+var plugIP = os.Getenv("TPLINK_ADDR")
+var plug = hs1xxplug.Hs1xxPlug{IPAddress: plugIP}
+var pReg = prometheus.NewRegistry()
 
-func main() {
-	log.SetOutput(os.Stdout)
-	log.Info("starting")
-	log.SetFormatter(&log.JSONFormatter{})
-
-	pReg := prometheus.NewRegistry()
+func register() {
+	log.Info("Registering Stats")
 	pReg.MustRegister(Pomvoltage)
 	pReg.MustRegister(Pomcurrent)
 	pReg.MustRegister(Pompower)
 	pReg.MustRegister(Pomtotal)
-	go func() {
-		for {
-			process()
-			pomStats()
-			time.Sleep(10 * time.Second)
-		}
-	}()
+}
+
+func initLog() {
+	log.SetOutput(os.Stdout)
+	log.SetFormatter(&log.JSONFormatter{})
+	log.Info("logger initialised")
+}
+
+func init() {
+	initLog()
+	register()
+	log.Info("starting http hander")
+}
+
+func serve() {
 	handler := promhttp.HandlerFor(pReg, promhttp.HandlerOpts{})
 	http.Handle("/metrics", handler)
 	http.ListenAndServe(":8089", nil)
 	log.Info("Serving on port 8089")
+}
+
+func main() {
+	ch := make(chan bool, 1)
+	defer close(ch)
+
+	go func() {
+		cancel := make(chan struct{}, 1)
+		timer := time.AfterFunc(2*time.Second, func() {
+			close(cancel)
+		})
+		defer timer.Stop()
+		for {
+			select {
+			case <-cancel:
+				err := connectToPlug()
+				if err == nil {
+					pomStats()
+				}
+			}
+			log.Error("Timed out")
+			time.Sleep(15 * time.Second)
+		}
+	}()
+	serve()
 }
 
 func pomStats() {
@@ -125,14 +161,20 @@ func pomStats() {
 	}).Info("Publishing Stats")
 }
 
-func process() {
-	plug := hs1xxplug.Hs1xxPlug{IPAddress: os.Getenv("TPLINK_ADDR")}
+func connectToPlug() error {
+	log.WithFields(log.Fields{
+		"Plug_IP": plugIP,
+	}).Info("connecting to plug")
 	results, err := plug.MeterInfo()
 	if err != nil {
 		log.Error("err:", err)
+		return err
 	}
-	error := json.Unmarshal([]byte(results), &tplink)
-	if error != nil {
-		log.Error(err)
+	log.Info("Unmarshaling meter reading")
+	err = json.Unmarshal([]byte(results), &tplink)
+	if err != nil {
+		log.Info(err)
+		return err
 	}
+	return nil
 }
