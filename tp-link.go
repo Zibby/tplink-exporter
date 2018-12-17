@@ -125,7 +125,6 @@ func main() {
 	defer close(ch)
 
 	go func() {
-		time.Sleep(15 * time.Second)
 		cancel := make(chan struct{}, 1)
 		timer := time.AfterFunc(2*time.Second, func() {
 			log.Error("Timed out")
@@ -133,6 +132,7 @@ func main() {
 		})
 		defer timer.Stop()
 		for {
+			time.Sleep(15 * time.Second)
 			select {
 			case <-cancel:
 				connectedToPlug := connectToPlug()
