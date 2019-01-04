@@ -120,32 +120,28 @@ func serve() {
 	log.Info("Serving on port 8089")
 }
 
-func main() {
-	ch := make(chan bool, 1)
-	defer close(ch)
-
-	go func() {
-		cancel := make(chan struct{}, 1)
-		timer := time.AfterFunc(2*time.Second, func() {
-			log.Error("Timed out")
-			close(cancel)
-		})
-		defer timer.Stop()
-		for {
-			time.Sleep(15 * time.Second)
-			select {
-			case <-cancel:
-				connectedToPlug := connectToPlug()
-				if connectedToPlug == true {
-					pomStats()
-				} else {
-					time.Sleep(10 * time.Second)
-				}
-
+func runloop() {
+	timeout := time.After(5 * time.Second)
+	tick := time.Tick(500 * time.Millisecond)
+	for {
+		select {
+		case <-timeout:
+			log.Error("Timed out loop")
+		case <-tick:
+			connectedToPlug := connectToPlug()
+			if connectedToPlug == true {
+				pomStats()
+				time.Sleep(10 * time.Second)
 			}
 		}
+	}
+}
+
+func main() {
+	go func() {
+		serve()
 	}()
-	serve()
+	runloop()
 }
 
 func pomStats() {
