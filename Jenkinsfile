@@ -1,9 +1,35 @@
 pipeline {
+  environment {
+    registry = "zibby/tplink-exporter"
+    registryCredential = 'f8a79f84-5ad0-43e4-b32c-87e2c6001a62'
+    dockerImage = ''
+  }
   agent any
   stages {
-    stage('Build') {
+    stage('Clone Git') {
       steps {
-        sh 'docker build -t zibby/tplink .'
+        git 'docker build -t zibby/tplink .'
+      }
+    }
+    stage('Build Image') {
+      steps {
+        script {
+          dockerImage = docker.build registry + "$BUILD_NUMBER"
+        }
+      }
+    }
+    stage('Push Image') {
+      steps {
+        script {
+          docker.withRegistry( '', registryCredential) {
+            dockerImage.push()
+          }
+        }
+      }
+    }
+    stage('clean_up') {
+      steps {
+        sh "docker rmi $registry:$BUILD_NUMBER"
       }
     }
   }

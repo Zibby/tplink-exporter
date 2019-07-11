@@ -10,6 +10,7 @@ docker run -d \
   --name=tplink_exporter \
   -p 8089:8089
   -e TPLINK_ADDR="${IP_ADDRESS_OF_PLUG}" \
+  -e LATER_FW="true"
   zibby/tplink-exporter
 ~~~
 
