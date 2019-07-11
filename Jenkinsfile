@@ -24,6 +24,11 @@ pipeline {
           docker.withRegistry( '', registryCredential) {
             dockerImage.push()
           }
+          if ("$env.BRANCH_NAME"=='master') {
+            docker.withRegistry( '', registryCredential) {
+              dockerImage.push('latest')
+            }
+          }
         }
       }
     }
