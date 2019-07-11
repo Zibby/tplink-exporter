@@ -12,7 +12,7 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
 RUN mkdir /app
 ADD . /app/
 WORKDIR /app
-EXPOSE :8089
+EXPOSE 8089/tcp
 RUN go get "github.com/prometheus/client_golang/prometheus"
 RUN go get "github.com/prometheus/client_golang/prometheus/promhttp"
 RUN go get "github.com/sausheong/hs1xxplug"

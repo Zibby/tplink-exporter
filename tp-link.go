@@ -12,7 +12,50 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type kasa struct {
+type kasa_new struct {
+	System struct {
+		GetSysinfo struct {
+			ErrCode    int     `json:"err_code"`
+			SwVer      string  `json:"sw_ver"`
+			HwVer      string  `json:"hw_ver"`
+			Type       string  `json:"type"`
+			Model      string  `json:"model"`
+			Mac        string  `json:"mac"`
+			DeviceID   string  `json:"deviceId"`
+			HwID       string  `json:"hwId"`
+			FwID       string  `json:"fwId"`
+			OemID      string  `json:"oemId"`
+			Alias      string  `json:"alias"`
+			DevName    string  `json:"dev_name"`
+			IconHash   string  `json:"icon_hash"`
+			RelayState int     `json:"relay_state"`
+			OnTime     int     `json:"on_time"`
+			ActiveMode string  `json:"active_mode"`
+			Feature    string  `json:"feature"`
+			Updating   int     `json:"updating"`
+			Rssi       int     `json:"rssi"`
+			LedOff     int     `json:"led_off"`
+			Latitude   float64 `json:"latitude"`
+			Longitude  float64 `json:"longitude"`
+		} `json:"get_sysinfo"`
+	} `json:"system"`
+	Emeter struct {
+		GetRealtime struct {
+			Current float64 `json:"current_ma"`
+			Voltage float64 `json:"voltage_mv"`
+			Power   float64 `json:"power_mw"`
+			Total   float64 `json:"total_wh"`
+			ErrCode int     `json:"err_code"`
+		} `json:"get_realtime"`
+		GetVgainIgain struct {
+			Vgain   int `json:"vgain"`
+			Igain   int `json:"igain"`
+			ErrCode int `json:"err_code"`
+		} `json:"get_vgain_igain"`
+	} `json:"emeter"`
+}
+
+type kasa_old struct {
 	System struct {
 		GetSysinfo struct {
 			ErrCode    int     `json:"err_code"`
@@ -55,7 +98,10 @@ type kasa struct {
 	} `json:"emeter"`
 }
 
-var tplink kasa
+
+
+var tplinkOld kasa_old
+var tplinkNew kasa_new
 
 var (
 	// Pomvoltage is the current voltage will see
@@ -145,20 +191,37 @@ func main() {
 }
 
 func pomStats() {
-	voltage := tplink.Emeter.GetRealtime.Voltage
-	current := tplink.Emeter.GetRealtime.Current
-	power := tplink.Emeter.GetRealtime.Power
-	total := tplink.Emeter.GetRealtime.Total
-	Pomvoltage.Set(voltage)
-	Pomcurrent.Set(current)
-	Pompower.Set(power)
-	Pomtotal.Set(total)
-	log.WithFields(log.Fields{
-		"Power":   power,
-		"Current": current,
-		"Voltage": voltage,
-		"Total":   total,
-	}).Info("Publishing Stats")
+	if os.Getenv("LATER_FW") == "true"{
+	  voltage := tplinkNew.Emeter.GetRealtime.Voltage/1000
+	  current := tplinkNew.Emeter.GetRealtime.Current/1000
+	  power := tplinkNew.Emeter.GetRealtime.Power/1000
+	  total := tplinkNew.Emeter.GetRealtime.Total/1000
+	  Pomvoltage.Set(voltage)
+	  Pomcurrent.Set(current)
+	  Pompower.Set(power)
+	  Pomtotal.Set(total)
+	  log.WithFields(log.Fields{
+		  "Power":   power,
+		  "Current": current,
+		  "Voltage": voltage,
+		  "Total":   total,
+	  }).Info("Publishing Stats")
+	} else {
+	  voltage := tplinkOld.Emeter.GetRealtime.Voltage
+	  current := tplinkOld.Emeter.GetRealtime.Current
+	  power := tplinkOld.Emeter.GetRealtime.Power
+	  total := tplinkOld.Emeter.GetRealtime.Total
+	  Pomvoltage.Set(voltage)
+	  Pomcurrent.Set(current)
+	  Pompower.Set(power)
+	  Pomtotal.Set(total)
+	  log.WithFields(log.Fields{
+		  "Power":   power,
+		  "Current": current,
+		  "Voltage": voltage,
+		  "Total":   total,
+	  }).Info("Publishing Stats")
+	} 
 }
 
 func connectToPlug() bool {
@@ -171,7 +234,12 @@ func connectToPlug() bool {
 		return false
 	}
 	log.Info("Unmarshaling meter reading")
-	err = json.Unmarshal([]byte(results), &tplink)
+	if os.Getenv("LATER_FW") == "true" {
+		err = json.Unmarshal([]byte(results), &tplinkNew)
+	} else {
+		err = json.Unmarshal([]byte(results), &tplinkOld)
+	}
+	
 	if err != nil {
 		log.Info(err)
 		return false
