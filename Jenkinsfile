@@ -8,7 +8,7 @@ pipeline {
   stages {
     stage('Clone Git') {
       steps {
-        git 'docker build -t zibby/tplink .'
+        git 'https://github.com/Zibby/tplink-exporter'
       }
     }
     stage('Build Image') {
