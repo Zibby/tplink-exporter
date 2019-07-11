@@ -98,8 +98,6 @@ type kasa_old struct {
 	} `json:"emeter"`
 }
 
-
-
 var tplinkOld kasa_old
 var tplinkNew kasa_new
 
@@ -191,37 +189,37 @@ func main() {
 }
 
 func pomStats() {
-	if os.Getenv("LATER_FW") == "true"{
-	  voltage := tplinkNew.Emeter.GetRealtime.Voltage/1000
-	  current := tplinkNew.Emeter.GetRealtime.Current/1000
-	  power := tplinkNew.Emeter.GetRealtime.Power/1000
-	  total := tplinkNew.Emeter.GetRealtime.Total/1000
-	  Pomvoltage.Set(voltage)
-	  Pomcurrent.Set(current)
-	  Pompower.Set(power)
-	  Pomtotal.Set(total)
-	  log.WithFields(log.Fields{
-		  "Power":   power,
-		  "Current": current,
-		  "Voltage": voltage,
-		  "Total":   total,
-	  }).Info("Publishing Stats")
+	if os.Getenv("LATER_FW") == "true" {
+		voltage := tplinkNew.Emeter.GetRealtime.Voltage / 1000
+		current := tplinkNew.Emeter.GetRealtime.Current / 1000
+		power := tplinkNew.Emeter.GetRealtime.Power / 1000
+		total := tplinkNew.Emeter.GetRealtime.Total / 1000
+		Pomvoltage.Set(voltage)
+		Pomcurrent.Set(current)
+		Pompower.Set(power)
+		Pomtotal.Set(total)
+		log.WithFields(log.Fields{
+			"Power":   power,
+			"Current": current,
+			"Voltage": voltage,
+			"Total":   total,
+		}).Info("Publishing Stats")
 	} else {
-	  voltage := tplinkOld.Emeter.GetRealtime.Voltage
-	  current := tplinkOld.Emeter.GetRealtime.Current
-	  power := tplinkOld.Emeter.GetRealtime.Power
-	  total := tplinkOld.Emeter.GetRealtime.Total
-	  Pomvoltage.Set(voltage)
-	  Pomcurrent.Set(current)
-	  Pompower.Set(power)
-	  Pomtotal.Set(total)
-	  log.WithFields(log.Fields{
-		  "Power":   power,
-		  "Current": current,
-		  "Voltage": voltage,
-		  "Total":   total,
-	  }).Info("Publishing Stats")
-	} 
+		voltage := tplinkOld.Emeter.GetRealtime.Voltage
+		current := tplinkOld.Emeter.GetRealtime.Current
+		power := tplinkOld.Emeter.GetRealtime.Power
+		total := tplinkOld.Emeter.GetRealtime.Total
+		Pomvoltage.Set(voltage)
+		Pomcurrent.Set(current)
+		Pompower.Set(power)
+		Pomtotal.Set(total)
+		log.WithFields(log.Fields{
+			"Power":   power,
+			"Current": current,
+			"Voltage": voltage,
+			"Total":   total,
+		}).Info("Publishing Stats")
+	}
 }
 
 func connectToPlug() bool {
@@ -235,11 +233,13 @@ func connectToPlug() bool {
 	}
 	log.Info("Unmarshaling meter reading")
 	if os.Getenv("LATER_FW") == "true" {
+		log.Info("Using Later FW json")
 		err = json.Unmarshal([]byte(results), &tplinkNew)
 	} else {
+		log.Info("Using legacy FW json")
 		err = json.Unmarshal([]byte(results), &tplinkOld)
 	}
-	
+
 	if err != nil {
 		log.Info(err)
 		return false

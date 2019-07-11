@@ -14,4 +14,7 @@ docker run -d \
   zibby/tplink-exporter
 ~~~
 
+If you have an older plug, try with the env variable LASTER_FW="false", there was some changes to the json that the newer firmware sends out that is not backwards compatible. 
+
 browse localhost:8089/metrics
+
