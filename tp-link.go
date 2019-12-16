@@ -12,6 +12,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type plugsIn struct {
+  Requested_Plug struct {
+	  address     string  `json:"plug_address"`
+		name        string  `json:"plug_name"`
+	}
+}
+
 type kasa_new struct {
 	System struct {
 		GetSysinfo struct {
@@ -62,7 +69,7 @@ type kasa_old struct {
 			SwVer      string  `json:"sw_ver"`
 			HwVer      string  `json:"hw_ver"`
 			Type       string  `json:"type"`
-			Model      string  `json:"model"`
+ 			Model      string  `json:"model"`
 			Mac        string  `json:"mac"`
 			DeviceID   string  `json:"deviceId"`
 			HwID       string  `json:"hwId"`
@@ -151,9 +158,16 @@ func initLog() {
 	log.Info("logger initialised")
 }
 
+func decodeEnvJson() {
+  log.Info("Decoding Env Json")	
+  err := json.Unmarshal([]byte(os.Getenv("Plugs")), &plugsIn)
+	log.Info("Plugs Requested: %v", &plugsIn[1].name)
+}
+
 func init() {
 	initLog()
 	register()
+	decodeEnvJson()
 }
 
 func serve() {
