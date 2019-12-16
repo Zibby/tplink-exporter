@@ -12,14 +12,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type plugsIn struct {
-  Requested_Plug struct {
-	  address     string  `json:"plug_address"`
-		name        string  `json:"plug_name"`
+// RequestedPlug holds info about hs110 plugs
+type RequestedPlug struct {
+	Address  string `json:"address"`
+	Name     string `json:"name"`
+	Legacy   bool   `json:"legacy"`
+	Handler  http.Handler
+	Registry prometheus.Registry
+	Stats    struct {
+		Voltage float64
+		Current float64
+		Power   float64
 	}
 }
 
-type kasa_new struct {
+type kasaNew struct {
 	System struct {
 		GetSysinfo struct {
 			ErrCode    int     `json:"err_code"`
@@ -62,14 +69,14 @@ type kasa_new struct {
 	} `json:"emeter"`
 }
 
-type kasa_old struct {
+type kasaOld struct {
 	System struct {
 		GetSysinfo struct {
 			ErrCode    int     `json:"err_code"`
 			SwVer      string  `json:"sw_ver"`
 			HwVer      string  `json:"hw_ver"`
 			Type       string  `json:"type"`
- 			Model      string  `json:"model"`
+			Model      string  `json:"model"`
 			Mac        string  `json:"mac"`
 			DeviceID   string  `json:"deviceId"`
 			HwID       string  `json:"hwId"`
@@ -105,8 +112,7 @@ type kasa_old struct {
 	} `json:"emeter"`
 }
 
-var tplinkOld kasa_old
-var tplinkNew kasa_new
+var plugsIn []RequestedPlug
 
 var (
 	// Pomvoltage is the current voltage will see
@@ -139,16 +145,16 @@ var (
 		Help: "Total recorded by TPlink HS110",
 	})
 )
-var plugIP = os.Getenv("TPLINK_ADDR")
-var plug = hs1xxplug.Hs1xxPlug{IPAddress: plugIP}
-var pReg = prometheus.NewRegistry()
 
-func register() {
+//var plugIP = os.Getenv("TPLINK_ADDR")
+//var plug = hs1xxplug.Hs1xxPlug{IPAddress: plugIP}
+
+func register(preg *prometheus.Registry) {
 	log.Info("Registering Stats")
-	pReg.MustRegister(Pomvoltage)
-	pReg.MustRegister(Pomcurrent)
-	pReg.MustRegister(Pompower)
-	pReg.MustRegister(Pomtotal)
+	preg.MustRegister(Pomvoltage)
+	preg.MustRegister(Pomcurrent)
+	preg.MustRegister(Pompower)
+	preg.MustRegister(Pomtotal)
 	log.Info("Stats Registered")
 }
 
@@ -158,27 +164,25 @@ func initLog() {
 	log.Info("logger initialised")
 }
 
-func decodeEnvJson() {
-  log.Info("Decoding Env Json")	
-  err := json.Unmarshal([]byte(os.Getenv("Plugs")), &plugsIn)
-	log.Info("Plugs Requested: %v", &plugsIn[1].name)
+func decodeEnvJSON() {
+	log.Info("Decoding Env Json")
+	err := json.Unmarshal([]byte(os.Getenv("PLUGS")), &plugsIn)
+	if err != nil {
+		log.Info("Error with Env Var PLUGS:", err)
+	}
+	log.Info("Plugs Requested: ", &plugsIn)
 }
 
 func init() {
 	initLog()
-	register()
-	decodeEnvJson()
+	decodeEnvJSON()
+	go func() {
+		http.ListenAndServe(":8089", nil)
+		log.Info("Serving on port 8089")
+	}()
 }
 
-func serve() {
-	log.Info("starting http hander")
-	handler := promhttp.HandlerFor(pReg, promhttp.HandlerOpts{})
-	http.Handle("/metrics", handler)
-	http.ListenAndServe(":8089", nil)
-	log.Info("Serving on port 8089")
-}
-
-func runloop() {
+func runloop(rPlug RequestedPlug) {
 	timeout := time.After(5 * time.Second)
 	tick := time.Tick(500 * time.Millisecond)
 	for {
@@ -186,9 +190,9 @@ func runloop() {
 		case <-timeout:
 			log.Error("Timed out loop")
 		case <-tick:
-			connectedToPlug := connectToPlug()
+			connectedToPlug := connectToPlug(rPlug)
 			if connectedToPlug == true {
-				pomStats()
+				pomStats(rPlug)
 				time.Sleep(10 * time.Second)
 			}
 		}
@@ -196,67 +200,77 @@ func runloop() {
 }
 
 func main() {
-	go func() {
-		serve()
-	}()
-	runloop()
+	log.Info(plugsIn)
+	for _, plug := range plugsIn {
+		plug.Registry = *prometheus.NewRegistry()
+		plug.Handler = promhttp.HandlerFor(&plug.Registry, promhttp.HandlerOpts{})
+	}
+	for _, plug := range plugsIn {
+		log.Info("Range: ", plug.Name)
+		go func(plug RequestedPlug) {
+			log.Info("Handling: ", plug.Name)
+			http.Handle("/"+plug.Name, plug.Handler)
+			runloop(plug)
+		}(plug)
+		time.Sleep(10 * time.Second)
+	}
 }
 
-func pomStats() {
-	if os.Getenv("LATER_FW") == "true" {
-		voltage := tplinkNew.Emeter.GetRealtime.Voltage / 1000
-		current := tplinkNew.Emeter.GetRealtime.Current / 1000
-		power := tplinkNew.Emeter.GetRealtime.Power / 1000
-		total := tplinkNew.Emeter.GetRealtime.Total / 1000
-		Pomvoltage.Set(voltage)
-		Pomcurrent.Set(current)
-		Pompower.Set(power)
-		Pomtotal.Set(total)
+func pomStats(rplug RequestedPlug) {
+	if rplug.Legacy == true {
+		Pomvoltage.Set(rplug.Stats.Voltage)
+		Pomcurrent.Set(rplug.Stats.Current)
+		Pompower.Set(rplug.Stats.Power)
 		log.WithFields(log.Fields{
-			"Power":   power,
-			"Current": current,
-			"Voltage": voltage,
-			"Total":   total,
-		}).Info("Publishing Stats")
+			"Power":   rplug.Stats.Power,
+			"Current": rplug.Stats.Current,
+			"Voltage": rplug.Stats.Voltage,
+		}).Info("Publishing Stats for:", rplug.Name)
 	} else {
-		voltage := tplinkOld.Emeter.GetRealtime.Voltage
-		current := tplinkOld.Emeter.GetRealtime.Current
-		power := tplinkOld.Emeter.GetRealtime.Power
-		total := tplinkOld.Emeter.GetRealtime.Total
-		Pomvoltage.Set(voltage)
-		Pomcurrent.Set(current)
-		Pompower.Set(power)
-		Pomtotal.Set(total)
 		log.WithFields(log.Fields{
-			"Power":   power,
-			"Current": current,
-			"Voltage": voltage,
-			"Total":   total,
+			"Power":   rplug.Stats.Power,
+			"Current": rplug.Stats.Current,
+			"Voltage": rplug.Stats.Voltage,
 		}).Info("Publishing Stats")
 	}
 }
 
-func connectToPlug() bool {
+func connectToPlug(rplug RequestedPlug) bool {
 	log.WithFields(log.Fields{
-		"Plug_IP": plugIP,
+		"Plug_IP": rplug.Address,
 	}).Info("connecting to plug")
-	results, err := plug.MeterInfo()
+	h1plug := hs1xxplug.Hs1xxPlug{IPAddress: rplug.Address}
+	log.Info("h1plug set")
+	readings, err := h1plug.MeterInfo()
+	log.Info("Got Readings")
 	if err != nil {
 		log.Error(err)
 		return false
 	}
 	log.Info("Unmarshaling meter reading")
-	if os.Getenv("LATER_FW") == "true" {
+	if rplug.Legacy == false {
 		log.Info("Using Later FW json")
-		err = json.Unmarshal([]byte(results), &tplinkNew)
+		var results kasaNew
+		err = json.Unmarshal([]byte(readings), &results)
+		rplug.Stats.Voltage = results.Emeter.GetRealtime.Voltage / 1000
+		rplug.Stats.Current = results.Emeter.GetRealtime.Current / 1000
+		rplug.Stats.Power = results.Emeter.GetRealtime.Power / 1000
+		log.Info(rplug.Stats.Voltage)
 	} else {
 		log.Info("Using legacy FW json")
-		err = json.Unmarshal([]byte(results), &tplinkOld)
+		var results kasaOld
+		err = json.Unmarshal([]byte(readings), &results)
+		rplug.Stats.Voltage = results.Emeter.GetRealtime.Voltage
+		rplug.Stats.Current = results.Emeter.GetRealtime.Current
+		rplug.Stats.Power = results.Emeter.GetRealtime.Power
+		log.Info(rplug.Stats.Voltage)
+
+		return false
 	}
 
 	if err != nil {
 		log.Info(err)
 		return false
 	}
-	return true
+	return false
 }
