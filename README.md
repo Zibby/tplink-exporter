@@ -7,12 +7,26 @@ Prometheus endpoint written in go exposed on port 8089.
 docker run -d \
   --name=tplink_exporter \
   -p 8089:8089
-  -e TPLINK_ADDR="${IP_ADDRESS_OF_PLUG}" \
-  -e LATER_FW="true"
+  -e TPLINK_ADDR="[{"name":"first_plug","address":"xxx.xxx.xxx.xxx","legacy": true},{"name":"second_plug", "address":"xxx.xxx.xxx.xxx", "legacy": false}]" \
   zibby/tplink-exporter
 ~~~
 
-If you have an older plug, try with the env variable `LATER_FW="false"`, there was some changes to the json that the newer firmware sends out that is not backwards compatible.
+If you have an older plug, try with the variable `legacy="true"`, there was some changes to the json that the newer firmware sends out that is not backwards compatible.
 
-browse localhost:8089/metrics
+browse localhost:8089/first_plug or localhost:8089/second_plug
 
+## Example docker-compose
+~~~docker
+  tplink-exporter:
+    image: zibby/tplink-exporter:latest
+    container_name: tplink-exporter
+    restart: always
+    environment:
+      PLUGS: '[
+        {"name":"server","address":"xxx.xxx.xxx.xxx","legacy":true},
+        {"name":"pc","address":"xxx.xxx.xxx.xxx","legacy":false},
+        {"name":"tv","address":"xxx.xxx.xxx.xxx","legacy":false},
+        {"name":"lights","address":"xxx.xxx.xxx.xxx","legacy":false},
+        {"name":"christmas-tree","address":"xxx.xxx.xxx.xxx","legacy":false}
+      ]'
+~~~
