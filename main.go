@@ -42,7 +42,6 @@ func plugStats(w http.ResponseWriter, r *http.Request) {
 	reg.MustRegister(promPower)
 	reg.MustRegister(promTotal)
 	r.ParseForm()
-	//handler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
 
 	plugAddress := r.FormValue("address")
 	useLegacy := r.FormValue("legacy")
@@ -79,5 +78,5 @@ func main() {
 	r.HandleFunc("/health", healthHander)
 	r.HandleFunc("/plugs/{plugname}", plugStats)
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(http.ListenAndServe(":8089", r))
 }
