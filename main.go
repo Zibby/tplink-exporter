@@ -57,7 +57,7 @@ func plugStats(w http.ResponseWriter, r *http.Request) {
 		promVoltage.Set(results.Emeter.GetRealtime.Voltage / 1000)
 		promCurrent.Set(results.Emeter.GetRealtime.Current / 1000)
 		promPower.Set(results.Emeter.GetRealtime.Power / 1000)
-		promPower.Set(results.Emeter.GetRealtime.Total)
+		promTotal.Set(results.Emeter.GetRealtime.Total)
 	} else {
 		log.Info("Using legacy FW json")
 		var results kasaOld
@@ -65,9 +65,8 @@ func plugStats(w http.ResponseWriter, r *http.Request) {
 		promVoltage.Set(results.Emeter.GetRealtime.Voltage)
 		promCurrent.Set(results.Emeter.GetRealtime.Current)
 		promPower.Set(results.Emeter.GetRealtime.Power)
-		promPower.Set(results.Emeter.GetRealtime.Total)
+		promTotal.Set(results.Emeter.GetRealtime.Total)
 	}
-	log.Info(promVoltage)
 	promhttp.HandlerFor(reg, promhttp.HandlerOpts{}).ServeHTTP(w, r)
 }
 
