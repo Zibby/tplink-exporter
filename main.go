@@ -76,7 +76,7 @@ func healthHander(w http.ResponseWriter, r *http.Request) {
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/health", healthHander)
-	r.HandleFunc("/plugs/{plugname}", plugStats)
+	r.HandleFunc("/metrics", plugStats)
 
 	log.Fatal(http.ListenAndServe(":8089", r))
 }
