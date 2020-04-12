@@ -67,7 +67,6 @@ func plugStats(w http.ResponseWriter, r *http.Request) {
 		promPower.Set(results.Emeter.GetRealtime.Power)
 		promTotal.Set(results.Emeter.GetRealtime.Total)
 	}
-	log.Info(promVoltage)
 	promhttp.HandlerFor(reg, promhttp.HandlerOpts{}).ServeHTTP(w, r)
 }
 
