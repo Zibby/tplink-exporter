@@ -16,6 +16,7 @@ RUN go get "github.com/prometheus/client_golang/prometheus"
 RUN go get "github.com/prometheus/client_golang/prometheus/promhttp"
 RUN go get "github.com/sausheong/hs1xxplug"
 RUN go get "github.com/sirupsen/logrus"
+RUN go get  "github.com/gorilla/mux"
 
 RUN go build -o main .
 ENTRYPOINT ["/app/main"]
